@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPYGUARD - History</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+            <div class="col-md-3 col-lg-2 sidebar p-0">
+                {% include 'components/sidebar.html' %}
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">File Upload History</h2>
+                    <div class="d-flex align-items-center">
+                        <div class="date-range-picker me-3">
+                            <i class="bi bi-calendar-event me-1"></i>
+                            <input type="date" id="startDate" />
+                            <span class="mx-1">to</span>
+                            <input type="date" id="endDate" />
+                        </div>
+                        <button id="exportAllBtn" class="btn btn-secondary">
+                            <i class="bi bi-download me-2"></i> Export All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Summary -->
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card">
+                                <h6><i class="bi bi-upload me-2"></i>Total Upload</h5>
+                                <h2 id="totalScans">0</h2>
+                                <small>Total file upload</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card">
+                                <h6><i class="bi bi-shield-exclamation me-2"></i>Total Attacks</h6>
+                                <h2 id="totalAttacks" >0</h2>
+                                <small>Total attacks scan</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card">
+                            <h6><i class="bi bi-check-circle me-2"></i>Total Normal</h6>
+                            <h2 id="totalNormal">0</h2>
+                            <small>Total normal records</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card">
+
+                                <h6><i class="bi bi-pencil-square me-2"></i>Attack Class Counts</h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li>DoS: <span id="dosCount">0</span></li>
+                                    <li>Probe: <span id="probeCount">0</span></li>
+                                    <li>U2R: <span id="u2rCount">0</span></li>
+                                    <li>R2L: <span id="r2lCount">0</span></li>
+                                    <li>Normal: <span id="normalCount">0</span></li>
+                                    <li>Unknown: <span id="unknownCount">0</span></li>
+                                </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="card mt-4" id="historyTableCard">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-table me-2"></i> File Upload History
+                        </h5>
+                        <div class="static-history-table-container">
+                            <table class="table table-hover centered-table">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>File Name</th>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th>DoS</th>
+                                        <th>Probe</th>
+                                        <th>U2R</th>
+                                        <th>R2L</th>
+                                        <th>Normal</th>
+                                        <th>Unknown</th>
+                                        <th>Total Attacks</th>
+                                        <th>Total Records</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTable">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/scripts.js"></script>
+
+<!-- History Script -->
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        loadHistoryData();
+        document.getElementById("startDate").addEventListener("change", loadHistoryData);
+        document.getElementById("endDate").addEventListener("change", loadHistoryData);
+    });
+
+    async function loadHistoryData() {
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+        let url = "/api/history";
+        if (startDate || endDate) {
+            url += `?start=${startDate}&end=${endDate}`;
+        }
+
+        const response = await fetch(url, { credentials: "include" });
+        const data = await response.json();
+
+        const tableBody = document.getElementById("historyTable");
+        const tableCard = document.getElementById("historyTableCard");
+        tableBody.innerHTML = "";
+        tableCard.style.display = "none";
+
+        if (data.history && data.history.length > 0) {
+            tableCard.style.display = "block";
+
+            // Summary Cards
+            const totalScansElement = document.getElementById('totalScans');
+            if (totalScansElement) {
+                totalScansElement.textContent = data.history.length;
+            }
+
+            const totalAttacksElement = document.getElementById('totalAttacks');
+            if (totalAttacksElement) {
+                totalAttacksElement.textContent = data.history.reduce((sum, item) => sum + (item.attack_count || 0), 0);
+            }
+
+            const totalNormalElement = document.getElementById('totalNormal');
+            if (totalNormalElement) {
+                const totalNormal = data.history.reduce((sum, item) => sum + (item.normal_count || 0), 0);
+                totalNormalElement.textContent = totalNormal;
+            }
+            const totals = {
+                dos: 0, probe: 0, u2r: 0, r2l: 0, normal: 0, unknown: 0
+            };
+            data.history.forEach(item => {
+                totals.dos += item.dos_count || 0;
+                totals.probe += item.probe_count || 0;
+                totals.u2r += item.u2r_count || 0;
+                totals.r2l += item.r2l_count || 0;
+                totals.normal += item.normal_count || 0;
+                totals.unknown += item.unknown_count || 0;
+            });
+
+            document.getElementById('dosCount').textContent = totals.dos;
+            document.getElementById('probeCount').textContent = totals.probe;
+            document.getElementById('u2rCount').textContent = totals.u2r;
+            document.getElementById('r2lCount').textContent = totals.r2l;
+            document.getElementById('normalCount').textContent = totals.normal;
+            document.getElementById('unknownCount').textContent = totals.unknown;
+
+            tableBody.innerHTML = data.history.map((scan, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${scan.filename || "N/A"}</td>
+                    <td>${scan.date}</td>
+                    <td>${scan.time}</td>
+                    <td>${scan.dos_count}</td>
+                    <td>${scan.probe_count}</td>
+                    <td>${scan.u2r_count}</td>
+                    <td>${scan.r2l_count}</td>
+                    <td>${scan.normal_count}</td>
+                    <td>${scan.unknown_count}</td>
+                    <td class="text-danger">${scan.attack_count}</td>
+                    <td>${scan.total_records}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <a href="/download/${scan.scan_id}" class="btn btn-sm btn-success me-2" download>
+                                <i class="bi bi-download"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger delete-btn" title="Delete" data-scan-id="${scan.scan_id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join("");
+
+            attachDeleteEventListeners();
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="13" class="text-center">No records found.</td></tr>`;
+        }
+    }
+
+    document.getElementById("exportAllBtn").addEventListener("click", async () => {
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+    let url = "/history/report";
+    const params = new URLSearchParams();
+    if (startDate) params.append("start", startDate);
+    if (endDate) params.append("end", endDate);
+    if (params.toString()) url += "?" + params.toString();
+
+    try {
+        const response = await fetch(url, { method: "GET", credentials: "include" });
+        if (!response.ok) {
+            const errorText = await response.text();
+            alert("Failed to generate report: " + errorText);
+            return;
+        }
+        const blob = await response.blob();
+        const fileUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = fileUrl;
+        link.download = `SpyGuard_Report_${startDate || "All"}_to_${endDate || "All"}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (error) {
+        console.error("Export error:", error);
+        alert("An error occurred while exporting.");
+    }
+});
+
+    function attachDeleteEventListeners() {
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', async () => {
+                const scanId = button.getAttribute('data-scan-id');
+                if (!confirm('Are you sure you want to delete this scan?')) return;
+                try {
+                    const response = await fetch(`/api/history/${scanId}`, {
+                        method: 'DELETE',
+                        credentials: 'include'
+                    });
+                    if (response.ok) {
+                        alert('Deleted successfully.');
+                        loadHistoryData();
+                    } else if (response.status === 401) {
+                        alert('Unauthorized: Please log in.');
+                        window.location.href = '/';
+                    } else {
+                        alert('Failed to delete scan.');
+                    }
+                } catch (error) {
+                    console.error('Error deleting scan:', error);
+                    alert('An error occurred while deleting the scan.');
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>

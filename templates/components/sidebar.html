@@ -1,0 +1,54 @@
+<!-- Navigation Sidebar Component -->
+<div class="col-md-3 col-lg-2 sidebar p-0 d-flex flex-column">
+    <div class="p-3">
+        <h4 class="text-white mb-4 mt-3 text-center" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-weight: 700; font-size: 1.8rem;">SPYGUARD</h4>
+        <div class="user-info dropdown">
+            <small>Logged in as</small>
+            <h6 id="userRole" class="mb-0 dropdown-toggle" data-bs-toggle="dropdown">
+                Admin <i class="bi bi-person-circle ms-2"></i>
+            </h6>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="/dashboard">
+                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/upload">
+                    <i class="bi bi-upload me-2"></i> Upload & Results
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/history">
+                    <i class="bi bi-clock-history me-2"></i> History
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/about">
+                    <i class="bi-info-circle me-2"></i> About
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/faqs">
+                    <i class="bi bi-question-lg me-2"></i> FAQs
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    
+    <!-- Footer inside sidebar -->
+    <div class="p-3 border-top border-secondary text-center text-white small">
+        <form id="logoutForm" method="GET" action="api/logout">
+            <input type="hidden">
+            <button type="submit" class="btn btn-outline-light w-100 mb-2">
+                <i class="bi bi-box-arrow-left me-2"></i> Logout
+            </button>
+        </form>
+        <div>
+            SPYGUARD &copy; 2025<br>
+            Network Intrusion Detection System (NIDS)
+        </div>
+    </div>
+</div>

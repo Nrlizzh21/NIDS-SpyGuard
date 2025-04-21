@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPYGUARD Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+
+  <div class="col-md-3 col-lg-2 sidebar p-0">
+    {% include 'components/sidebar.html' %}
+  </div>
+
+  <div class="main-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-0">Dashboard</h2>
+      <div class="d-flex align-items-center">
+        <div class="date-range-picker me-3">
+          <i class="bi bi-calendar-event me-1"></i>
+          <input type="date" id="startDate">
+          <span class="mx-1">to</span>
+          <input type="date" id="endDate">
+          <button id="applyDateFilter" class="btn btn-sm btn-outline-light ms-2">Apply</button>
+        </div>
+        <small class="text-white">Last updated: <span id="lastUpdated"></span></small>
+      </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-graph-up me-2"></i>Total Predictions</h5>
+          <h2 id="totalCount">0</h2>
+          <small>Total predictions made</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-check-circle me-2"></i>Normal Traffic</h5>
+          <h2 id="normalCount">0</h2>
+          <small>Normal network traffic</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-exclamation-triangle me-2"></i>DoS Attacks</h5>
+          <h2 id="dosCount">0</h2>
+          <small>Denial of Service</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-search me-2"></i>Probe Attacks</h5>
+          <h2 id="probeCount">0</h2>
+          <small>Surveillance & Probing</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-shield-lock me-2"></i>U2R Attacks</h5>
+          <h2 id="u2rCount">0</h2>
+          <small>User to Root</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-person-x me-2"></i>R2L Attacks</h5>
+          <h2 id="r2lCount">0</h2>
+          <small>Remote to Local</small>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card">
+          <h5><i class="bi bi-question-circle me-2"></i>Unknown</h5>
+          <h2 id="unknownCount">0</h2>
+          <small>Unknown traffic</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row g-3 mt-4 align-items-stretch">
+        <div class="col-md-6">
+          <div class="card h-100 d-flex flex-column">
+            <h5><i class="bi bi-activity me-2"></i>Attack Trend</h5>
+            <div class="chart-container flex-grow-1">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100 d-flex flex-column">
+            <h5><i class="bi bi-pie-chart me-2"></i>Attack Distribution</h5>
+            <div class="chart-container flex-grow-1">
+              <canvas id="distributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="/static/js/scripts.js"></script>
+
+    <!-- Dashboard Script -->
+    <script>
+        // Chart objects to be updated later
+        let trendChart = null;
+        let distributionChart = null;
+        
+        // Set default date range (last 7 days)
+        function setDefaultDateRange() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            
+            document.getElementById('startDate').valueAsDate = startDate;
+            document.getElementById('endDate').valueAsDate = endDate;
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setDefaultDateRange();
+            loadDashboardData();
+            
+            // Add click event for apply button
+            document.getElementById('applyDateFilter').addEventListener('click', loadDashboardData);
+        });
+
+        // Load dashboard data with date filters
+        async function loadDashboardData() {
+            try {
+                // Show loading state
+                document.querySelectorAll('.card h2').forEach(el => {
+                    el.innerHTML = '<small><i class="bi bi-hourglass-split"></i> Loading...</small>';
+                });
+                
+                // Get date range from inputs
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                
+                let url = '/api/dashboard_data';
+                if (startDate && endDate) {
+                    url += `?start=${startDate}&end=${endDate}`;
+                }
+                
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Dashboard data received:', data);
+                
+                // Update stats cards
+                document.getElementById('totalCount').textContent = data.totalCount || 0;
+                document.getElementById('normalCount').textContent = data.normalCount || 0;
+                document.getElementById('dosCount').textContent = data.dosCount || 0;
+                document.getElementById('probeCount').textContent = data.probeCount || 0;
+                document.getElementById('u2rCount').textContent = data.u2rCount || 0;
+                document.getElementById('r2lCount').textContent = data.r2lCount || 0;
+                document.getElementById('unknownCount').textContent = data.unknownCount || 0;
+
+                // Update last updated timestamp
+                const lastUpdatedDate = new Date(data.lastUpdated);
+                document.getElementById('lastUpdated').textContent = lastUpdatedDate.toLocaleString();
+                
+                // Update charts
+                renderCharts(data);
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                
+                // Show error state
+                document.querySelectorAll('.card h2').forEach(el => {
+                    if (el.innerHTML.includes('Loading')) {
+                        el.innerHTML = '<small class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error</small>';
+                    }
+                });
+            }
+        }
+        function renderCharts(data) {
+    // Prepare data for trend chart
+    const timeSeriesLabels = data.timeSeriesData.map(item => item.date);
+    const dosData = data.timeSeriesData.map(item => item.dos);
+    const probeData = data.timeSeriesData.map(item => item.probe);
+    const u2rData = data.timeSeriesData.map(item => item.u2r);
+    const r2lData = data.timeSeriesData.map(item => item.r2l);
+    
+    // Destroy existing charts to prevent duplicates
+    if (trendChart) trendChart.destroy();
+    if (distributionChart) distributionChart.destroy();
+
+            
+    // Create trend chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    trendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: timeSeriesLabels,
+            datasets: [
+                
+                {
+                    label: 'DoS',
+                    data: dosData,
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                },
+                {
+                    label: 'Probe',
+                    data: probeData,
+                    borderColor: 'rgba(255, 193, 7, 1)',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                },
+                {
+                    label: 'U2R',
+                    data: u2rData,
+                    borderColor: 'rgba(23, 162, 184, 1)',
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                },
+                {
+                    label: 'R2L',
+                    data: r2lData,
+                    borderColor: 'rgba(108, 117, 125, 1)',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Attack Trends Over Time'
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            
+                            const dateStr = tooltipItems[0].label;
+                            const date = new Date(dateStr);
+                            return date.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                            });
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',  
+                    time: {
+                        unit: determineTimeUnit(timeSeriesLabels),  
+                        displayFormats: {
+                            day: 'MMM d',
+                            week: 'MMM d',
+                            month: 'MMM yyyy'
+                        },
+                        tooltipFormat: 'MMM d, yyyy'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    },
+                    ticks: {
+                        maxRotation: 45,  
+                        minRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 15  
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Count'
+                    }
+                }
+            }
+        }
+    });
+            
+            // Create distribution chart (pie) 
+    const distCtx = document.getElementById('distributionChart').getContext('2d');
+    distributionChart = new Chart(distCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['DoS', 'Probe', 'U2R', 'R2L', 'Normal', 'Unknown'],
+                    datasets: [{
+                        data: [
+                            data.dosCount || 0,
+                            data.probeCount || 0,
+                            data.u2rCount || 0,
+                            data.r2lCount || 0,
+                            data.normalCount || 0,
+                            data.unknownCount || 0,
+                        ],
+                        backgroundColor: [
+                            'rgba(220, 53, 69, 0.7)',
+                            'rgba(255, 193, 7, 0.7)',
+                            'rgba(23, 162, 184, 0.7)',
+                            'rgba(108, 117, 125, 0.7)',
+                            'rgba(40, 167, 69, 0.7)',
+                            'rgba(0, 123, 255, 0.7)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Traffic Distribution'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Helper function to determine appropriate time unit based on date range
+function determineTimeUnit(dateLabels) {
+    if (!dateLabels || dateLabels.length < 2) return 'day';
+    
+    try {
+        // Convert string dates to Date objects
+        const firstDate = new Date(dateLabels[0]);
+        const lastDate = new Date(dateLabels[dateLabels.length - 1]);
+        
+        // Calculate the range in days
+        const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+        
+        if (daysDiff <= 14) return 'day';
+        if (daysDiff <= 90) return 'week';
+        return 'month';
+    } catch (e) {
+        console.error('Error determining time unit:', e);
+        return 'day';  
+    }
+}
+
+        // Auto refresh every 60 seconds
+        setInterval(loadDashboardData, 60000);
+    </script>
+</body>
+</html>
